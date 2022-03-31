@@ -1,15 +1,15 @@
 #include "SuperSCP.h"
-
+#define UNUSED(x) (void)(x)
 static void SuperSCP_send_buffer();
 static void SuperSCPRecvInnerCallback();
 static void SuperSCPRecvInnerCallback();
-static Buffer send_buffer_super_scp;
-static Buffer recv_buffer_super_scp;
+static Buffer send_buffer_super_scp = {0};
+static Buffer recv_buffer_super_scp = {0};
 static int SuperSCPEndAndStartChar = '#';
 static int SuperSCPRevState=SUPERSCP_REV_OVER_AND_WAIT_START;
 
-__attribute__((weak)) byte __send_data_super_scp[SUPERSCP_DEFAULT_BUFFER_SIZE];
-__attribute__((weak)) byte __recv_data_super_scp[SUPERSCP_DEFAULT_BUFFER_SIZE];
+__attribute__((weak)) byte __send_data_super_scp[SUPERSCP_DEFAULT_BUFFER_SIZE] = {0};
+__attribute__((weak)) byte __recv_data_super_scp[SUPERSCP_DEFAULT_BUFFER_SIZE] = {0};
 
 // #define SuperSCP_ESCAPE_CHAR_LEN 2
 // static char SuperSCP_control_byte_buf[SuperSCP_ESCAPE_CHAR_LEN] = {0};
@@ -105,7 +105,7 @@ int SuperSCP_send(byte *data, int len)
 void SuperSCP_send_empty_msg(){
     SuperSCP_putchar(SuperSCPEndAndStartChar);
 }
-#include <stdio.h>
+
 // SuperSCP receive state machine's states
 void SuperSCP_parse(byte c)
 {
@@ -146,6 +146,8 @@ void SuperSCP_parse(byte c)
 
 __attribute__((weak)) void SuperSCPRecvCallback(byte *data, int len)
 {
+    UNUSED(data);
+    UNUSED(len);
     __unimplemented
 }
 __attribute__((weak)) byte SuperSCP_putchar(byte c)
@@ -154,6 +156,8 @@ __attribute__((weak)) byte SuperSCP_putchar(byte c)
     return c;
 }
 
-__attribute__((weak)) void SuperSCPErrorCallback(SuperSCPERROR error_code){
+__attribute__((weak)) void SuperSCPErrorCallback(SuperSCPERROR error_code)
+{
+    UNUSED(error_code);
     __unimplemented
 }

@@ -2,8 +2,8 @@
 #include <stdio.h>
 #include <string.h>
 #define BUFFER_SIZE 1024
-__implemented byte __send_data_super_scp[BUFFER_SIZE];
-__implemented byte __recv_data_super_scp[BUFFER_SIZE];
+__implemented byte __send_data_super_scp[BUFFER_SIZE] = {0};
+__implemented byte __recv_data_super_scp[BUFFER_SIZE] = {0};
 
 __implemented void SuperSCPRecvCallback(byte *data, int len)
 {
