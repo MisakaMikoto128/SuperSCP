@@ -6,7 +6,11 @@ static void SuperSCPRecvInnerCallback();
 static Buffer send_buffer_super_scp = {0};
 static Buffer recv_buffer_super_scp = {0};
 static int SuperSCPEndAndStartChar = '#';
+static int SuperSCPEndAndStartCharRepeat = 3;
+static int SuperSCPEndAndStartCharRepeatCount = 0;
 static int SuperSCPRevState=SUPERSCP_REV_OVER_AND_WAIT_START;
+// SuperSCP frame control byte (The frame delimiter)
+#define containSuperSCPCtrolByte(c) ((c) == SuperSCPEndAndStartChar)
 
 __attribute__((weak)) byte __send_data_super_scp[SUPERSCP_DEFAULT_BUFFER_SIZE] = {0};
 __attribute__((weak)) byte __recv_data_super_scp[SUPERSCP_DEFAULT_BUFFER_SIZE] = {0};
@@ -68,7 +72,6 @@ int setSuperSCPEndAndStartChar(int end_and_start_char){
     return SuperSCPEndAndStartChar;
 }
 
-
 /*
 Return:
     success: send data length
@@ -76,23 +79,33 @@ Return:
 */
 int SuperSCP_send(byte *data, int len)
 {
-    int i;
+    int i,SuperSCPEndAndStartCharRepeatCount = 0;
     //1. empty buffer
     buffer_clear(&send_buffer_super_scp);
     //2. push all data to buffer,check is buffer contain SuperSCPEndAndStartChar
     for (i = 0; i < len; i++)
     {
         if(data[i] == SuperSCPEndAndStartChar){
-            return SUPERSCP_SEND_CONTAIN_CONTROL_BYTE_ERROR;
+            SuperSCPEndAndStartCharRepeatCount++;
+            if(SuperSCPEndAndStartCharRepeatCount >= SuperSCPEndAndStartCharRepeat){
+                return SUPERSCP_SEND_CONTAIN_CONTROL_BYTES_ERROR;
+            }
+        }else{
+            SuperSCPEndAndStartCharRepeatCount = 0;
         }
+        
         if (buffer_push(&send_buffer_super_scp, data[i]) == OVER_CAPACITY_ERROR)
         {
             return SUPERSCP_SEND_BUFFER_OVERFLOW_ERROR;
         }
     }
     //3. push the SuperSCPEndAndStartChar to buffer
-    if(buffer_push(&send_buffer_super_scp, SuperSCPEndAndStartChar) == OVER_CAPACITY_ERROR){
-        return SUPERSCP_SEND_BUFFER_OVERFLOW_ERROR;
+    for (i = 0; i < SuperSCPEndAndStartCharRepeat; i++)
+    {
+        if (buffer_push(&send_buffer_super_scp, SuperSCPEndAndStartChar) == OVER_CAPACITY_ERROR)
+        {
+            return SUPERSCP_SEND_BUFFER_OVERFLOW_ERROR;
+        }
     }
     //4. send message
     SuperSCP_send_buffer();
@@ -106,6 +119,14 @@ void SuperSCP_send_empty_msg(){
     SuperSCP_putchar(SuperSCPEndAndStartChar);
 }
 
+static bool SuperParseEndAndStartChar(){
+    SuperSCPEndAndStartCharRepeatCount++;
+    if(SuperSCPEndAndStartCharRepeatCount >= SuperSCPEndAndStartCharRepeat){
+        SuperSCPEndAndStartCharRepeatCount = 0;
+        return true;
+    }
+    return false;
+}
 // SuperSCP receive state machine's states
 void SuperSCP_parse(byte c)
 {
@@ -120,21 +141,44 @@ void SuperSCP_parse(byte c)
                 SuperSCPRevState = SUPERSCP_REV_OVER_AND_WAIT_START;
                 SuperSCPErrorInnerCallback(SUPERSCP_RECV_BUFFER_OVERFLOW_ERROR);
             }
+        }else{
+            SuperSCPRevState = SUPERSCP_WAITTING_END;
+            SuperParseEndAndStartChar();
         }
         break;
-    case SUPERSCP_REVING:
-        if (c == SuperSCPEndAndStartChar)
-        {
-            SuperSCPRevState = SUPERSCP_REV_OVER_AND_WAIT_START;
-            SuperSCPRecvInnerCallback();
+    case SUPERSCP_WAITTING_END:
+        if(c != SuperSCPEndAndStartChar){
+            for(int i = 0;i < SuperSCPEndAndStartCharRepeatCount;i++){
+                buffer_push(&recv_buffer_super_scp,SuperSCPEndAndStartChar);
+            }
+            if (buffer_push(&recv_buffer_super_scp, c) == OVER_CAPACITY_ERROR)
+            {
+                SuperSCPRevState = SUPERSCP_REV_OVER_AND_WAIT_START;
+                SuperSCPErrorInnerCallback(SUPERSCP_RECV_BUFFER_OVERFLOW_ERROR);
+            }
+            SuperSCPRevState = SUPERSCP_REVING;
+            SuperSCPEndAndStartCharRepeatCount = 0;
+        }else{
+            if(SuperParseEndAndStartChar() == true){
+                SuperSCPRevState = SUPERSCP_REV_OVER_AND_WAIT_START;
+                SuperSCPEndAndStartCharRepeatCount = 0;
+                SuperSCPRecvInnerCallback();
+            }
         }
-        else
+    break;
+    case SUPERSCP_REVING:
+        if (c != SuperSCPEndAndStartChar)
         {
             if (buffer_push(&recv_buffer_super_scp, c) == OVER_CAPACITY_ERROR)
             {
                 SuperSCPRevState = SUPERSCP_REV_OVER_AND_WAIT_START;
                 SuperSCPErrorInnerCallback(SUPERSCP_RECV_BUFFER_OVERFLOW_ERROR);
             }
+        }
+        else
+        {
+            SuperSCPRevState = SUPERSCP_WAITTING_END;
+            SuperParseEndAndStartChar();
         }
         break;
     default:

@@ -7,11 +7,15 @@
 #define CAST_CHAR_PTR_TO_BYTE_PTR(ptr) (byte *)(ptr)
 
 // SuperSCP receive state machine's states
-#define SUPERSCP_REV_OVER_AND_WAIT_START 0
-#define SUPERSCP_REVING 1
+typedef enum 
+{
+    SUPERSCP_REV_OVER_AND_WAIT_START = 0,
+    SUPERSCP_REVING,
+    SUPERSCP_WAITTING_END,
+}SuperSCPRevState_t;
+
 // SuperSCP frame control byte (The frame delimiter)
-static int SuperSCPEndAndStartChar;
-#define containSuperSCPCtrolByte(c) ((c) == SuperSCPEndAndStartChar)
+// #define containSuperSCPCtrolByte(c) ((c) == SuperSCPEndAndStartChar)
 
 // A tag with an implementation function or variable
 #define __unimplemented 
@@ -22,7 +26,7 @@ static int SuperSCPEndAndStartChar;
 
 typedef int SuperSCPERROR;
 // define SuperSCP's error code
-#define SUPERSCP_SEND_CONTAIN_CONTROL_BYTE_ERROR -1
+#define SUPERSCP_SEND_CONTAIN_CONTROL_BYTES_ERROR -1
 #define SUPERSCP_SEND_BUFFER_OVERFLOW_ERROR -2
 #define SUPERSCP_RECV_BUFFER_OVERFLOW_ERROR -3
 
